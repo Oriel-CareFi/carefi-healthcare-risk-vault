@@ -26,6 +26,7 @@ from live_data import (
 )
 
 from risk_graph import build_risk_graph, event_table, neighborhood, layered_layout
+from capacity_router_v2 import optimize_capacity
 
 from vault_engine import (
     CARE_HRV_01,
@@ -150,33 +151,17 @@ def _protocol_pool_quote(pool,payload):
     }
 
 def route_capacity_request(payload):
-    quotes=[_protocol_pool_quote(pool,payload) for pool in PROTOCOL_CAPITAL_POOLS]
-    executable=sorted(
-        [q for q in quotes if q["eligible_capacity"]>0 and q["minimum_price"] is not None],
-        key=lambda q:(q["minimum_price"],-q["eligible_capacity"])
+    enriched=dict(payload)
+    enriched["healthcare_beta"]=float(
+        enriched.get("healthcare_beta",RISK_FAMILY_HEALTHCARE_BETA.get(str(enriched["risk_family"]),0.0))
     )
-    remaining=float(payload["requested_notional"])
-    allocations=[]
-    weighted_price=0.0
-    total_hedge=0.0
-    for quote in executable:
-        if remaining<=0:
-            break
-        allocation=min(remaining,float(quote["eligible_capacity"]))
-        hedge_share=allocation/quote["eligible_capacity"] if quote["eligible_capacity"] else 0.0
-        allocated_hedge=float(quote["medusdi_hedge"])*hedge_share
-        allocations.append({**quote,"allocated_notional":allocation,"allocated_medusdi_hedge":allocated_hedge})
-        weighted_price+=allocation*float(quote["minimum_price"])
-        total_hedge+=allocated_hedge
-        remaining-=allocation
-    assembled=float(payload["requested_notional"])-max(remaining,0.0)
-    return {
-        "quotes":quotes,"allocations":allocations,"requested_notional":float(payload["requested_notional"]),
-        "assembled_capacity":assembled,"unfilled":max(remaining,0.0),
-        "blended_price":weighted_price/assembled if assembled else 0.0,
-        "blended_medusdi_hedge":total_hedge,
-        "fill_ratio":assembled/float(payload["requested_notional"]) if float(payload["requested_notional"]) else 0.0,
-    }
+    corr=correlation_matrix_frame(SAMPLE_PORTFOLIO,1.0).to_numpy()
+    return optimize_capacity(
+        enriched,
+        PROTOCOL_CAPITAL_POOLS,
+        portfolio=SAMPLE_PORTFOLIO,
+        corr=corr,
+    )
 
 def protocol_transaction_snapshot(payload):
     routed=route_capacity_request(payload)
@@ -277,6 +262,7 @@ with tabs[0]:
     p3.metric("Fill ratio",f"{routed['fill_ratio']:.0%}")
     p4.metric("Blended minimum price",f"{routed['blended_price']:.1%}" if routed["assembled_capacity"] else "—")
     p5.metric("MEDUSDi overlay",money(routed["blended_medusdi_hedge"]))
+    st.caption("Capacity Router "+str(routed.get("router_version","v1"))+" · "+str(routed.get("objective","Rules-based routing")))
 
     st.markdown("#### Capital registry")
     registry_rows=[]
@@ -348,6 +334,45 @@ with tabs[0]:
             )
     else:
         st.warning("No eligible capital pool can currently fill this request.")
+
+    st.markdown("#### Marginal cost decomposition")
+    if routed["allocations"]:
+        cost_rows=[]
+        cost_labels=[
+            ("base_probability","Base probability"),
+            ("uncertainty","Model uncertainty"),
+            ("basis","Basis risk"),
+            ("duration","Duration"),
+            ("pool_adjustment","Pool adjustment"),
+            ("marginal_capital","Marginal capital"),
+            ("correlation","Correlation contribution"),
+            ("concentration","Portfolio concentration"),
+            ("collateral_funding","Collateral funding"),
+            ("hedge_execution","Hedge execution"),
+            ("hedge_credit","Hedge risk credit"),
+        ]
+        for alloc in routed["allocations"]:
+            row={"Pool":alloc["pool_id"],"Allocated":money(alloc["allocated_notional"]),"Average all-in":f"{alloc['minimum_price']:.2%}","Last marginal":f"{alloc.get('marginal_last_price',alloc['minimum_price']):.2%}"}
+            stack=alloc.get("cost_stack",{})
+            for key,label in cost_labels:
+                row[label]=f"{float(stack.get(key,0.0)):+.2%}"
+            cost_rows.append(row)
+        st.dataframe(pd.DataFrame(cost_rows),use_container_width=True,hide_index=True)
+
+        st.markdown("#### Optimizer diagnostics")
+        diag_rows=[]
+        for alloc in routed["allocations"]:
+            d=alloc.get("diagnostics",{})
+            diag_rows.append([
+                alloc["pool_id"],
+                f"{float(d.get('average_positive_correlation',0)):.2f}",
+                f"{float(d.get('family_concentration',0)):.1%}",
+                f"{float(d.get('geography_concentration',0)):.1%}",
+                f"{float(d.get('pool_utilization',0)):.1%}",
+                money(alloc["allocated_medusdi_hedge"]),
+            ])
+        st.dataframe(pd.DataFrame(diag_rows,columns=["Pool","Avg positive correlation","Post family concentration","Post geography concentration","Pool utilization","MEDUSDi hedge"]),use_container_width=True,hide_index=True)
+        st.caption("The router re-prices capacity in marginal chunks. A pool can win early dollars and lose later dollars as capital, correlation, collateral and concentration costs rise.")
 
     st.markdown("#### Protocol flow")
     st.caption("Architecture view — the allocation table above carries the economics; this map shows who does what.")
