@@ -25,6 +25,8 @@ from live_data import (
     fetch_kalshi_clearer_state,
 )
 
+from risk_graph import build_risk_graph, event_table, neighborhood, layered_layout
+
 from vault_engine import (
     CARE_HRV_01,
     SAMPLE_PORTFOLIO,
@@ -260,7 +262,7 @@ m3.metric("Available capacity",money(metrics["available"]))
 m4.metric("Weighted event probability",f"{metrics['weighted_probability']:.1%}")
 m5.metric("Indicative portfolio yield",f"{metrics['indicative_yield']:.1%}")
 
-tabs=st.tabs(["Protocol Overview","Transaction Flow","Vault Overview","Mandate & Terms","Request Capacity","Portfolio Impact","Portfolio","NAV & Marks","Risk Analytics","Cash & Collateral","Waterfall Simulator","Tokenized Interests","Oriel Reference Layer","Historical Replay","Live Data"])
+tabs=st.tabs(["Protocol Overview","Transaction Flow","Vault Overview","Mandate & Terms","Request Capacity","Portfolio Impact","Portfolio","NAV & Marks","Risk Analytics","Cash & Collateral","Waterfall Simulator","Tokenized Interests","Oriel Reference Layer","Historical Replay","Live Data","Risk Graph"])
 
 with tabs[0]:
     st.markdown("<div class='section'>CareFi Event Capacity Protocol</div>",unsafe_allow_html=True)
@@ -1361,6 +1363,115 @@ with tabs[14]:
 
     st.markdown("<div class='dark'><b>Production state:</b> BLS Medical CPI and SIHCARE3 are persisted on schedule; CDC settlement observations are frozen on first ingestion; Oriel healthcare event marks are generated as a versioned artifact and healthy marks feed the NAV hierarchy; MEDUSDi spot/reference comes from Oriel's live Ethereum/BLS monitor artifact. <b>Kalshi clearing:</b> the signed balance/positions adapter is implemented and becomes LIVE only when the app receives a real API key ID + RSA private key. The adapter is read-only in this prototype—no order placement, transfers, or withdrawals.</div>",unsafe_allow_html=True)
 
+
+
+with tabs[15]:
+    st.markdown("<div class='section'>CareFi Risk Graph</div>",unsafe_allow_html=True)
+    st.markdown("<div class='callout'><b>Risk intelligence layer.</b> The graph normalizes each healthcare exposure into its public settlement print, risk family, geography, common-factor hedge relationship, correlation cluster and eligible institutional capital pools. It is designed to answer not only what the risk is, but what it is connected to and where it can be transferred.</div>",unsafe_allow_html=True)
+
+    risk_graph=build_risk_graph(
+        SAMPLE_PORTFOLIO,
+        oriel_event_feed,
+        PROTOCOL_CAPITAL_POOLS,
+        RISK_FAMILY_HEALTHCARE_BETA,
+        correlation_matrix_frame(SAMPLE_PORTFOLIO,1.0),
+    )
+    gs=risk_graph["summary"]
+    g1,g2,g3,g4,g5=st.columns(5)
+    g1.metric("Healthcare risks",gs["event_count"])
+    g2.metric("Graph nodes",gs["node_count"])
+    g3.metric("Relationships",gs["edge_count"])
+    g4.metric("Capital routable",f"{gs['capital_routable_pct']:.0%}")
+    g5.metric("Hedge connected",f"{gs['hedge_connected_pct']:.0%}")
+
+    st.markdown("#### Network map")
+    st.caption("Public prints / geography → event risks → risk families / MEDUSDi → institutional capacity. Correlation links connect event nodes directly.")
+
+    coords=layered_layout(risk_graph)
+    node_map={n["id"]:n for n in risk_graph["nodes"]}
+    edge_x=[]; edge_y=[]
+    corr_x=[]; corr_y=[]
+    for e in risk_graph["edges"]:
+        if e["source"] not in coords or e["target"] not in coords:
+            continue
+        x0,y0=coords[e["source"]]; x1,y1=coords[e["target"]]
+        if e["relation"]=="correlated_with":
+            corr_x += [x0,x1,None]; corr_y += [y0,y1,None]
+        else:
+            edge_x += [x0,x1,None]; edge_y += [y0,y1,None]
+
+    fig=go.Figure()
+    fig.add_trace(go.Scatter(x=edge_x,y=edge_y,mode="lines",hoverinfo="skip",line=dict(width=1),showlegend=False))
+    if corr_x:
+        fig.add_trace(go.Scatter(x=corr_x,y=corr_y,mode="lines",hoverinfo="skip",line=dict(width=2,dash="dot"),name="Correlation"))
+
+    type_labels={
+        "public_print":"Public print","geography":"Geography","event":"Healthcare risk",
+        "risk_family":"Risk family","hedge":"Hedge factor","capital_pool":"Capital pool"
+    }
+    for node_type in ["public_print","geography","event","risk_family","hedge","capital_pool"]:
+        subset=[n for n in risk_graph["nodes"] if n["type"]==node_type and n["id"] in coords]
+        if not subset: continue
+        xs=[coords[n["id"]][0] for n in subset]
+        ys=[coords[n["id"]][1] for n in subset]
+        sizes=[22 if node_type=="event" else 16 for _ in subset]
+        hover=[]
+        for n in subset:
+            if node_type=="event":
+                hover.append(
+                    "<b>"+str(n["label"])+"</b><br>"+
+                    "Basis: "+str(n.get("basis_grade","—"))+
+                    "<br>Oriel FV: "+(f"{float(n.get('fair_value')):.1%}" if n.get("fair_value") is not None else "—")+
+                    "<br>MEDUSDi beta: "+f"{float(n.get('healthcare_beta',0)):.2f}"+
+                    "<br>Connectivity: "+f"{float(n.get('basis_connectivity_score',0)):.0f}/100"+
+                    "<br>Eligible pools: "+(", ".join(n.get("eligible_pools",[])) or "None")
+                )
+            elif node_type=="capital_pool":
+                hover.append("<b>"+str(n["label"])+"</b><br>Available capacity: "+money(float(n.get("available_capacity",0))))
+            else:
+                hover.append("<b>"+str(n["label"])+"</b><br>"+type_labels[node_type])
+        fig.add_trace(go.Scatter(
+            x=xs,y=ys,mode="markers+text",
+            text=[n["label"] for n in subset],
+            textposition="top center",
+            hovertext=hover,hoverinfo="text",
+            marker=dict(size=sizes,line=dict(width=1)),
+            name=type_labels[node_type],
+        ))
+
+    fig.update_xaxes(
+        tickmode="array",tickvals=[0,1,2,3],
+        ticktext=["Public data / geography","Healthcare risks","Risk factors","Capital pools"],
+        showgrid=False,zeroline=False
+    )
+    fig.update_yaxes(showticklabels=False,showgrid=False,zeroline=False)
+    fig.update_layout(height=650,margin=dict(l=20,r=20,t=30,b=20),legend_orientation="h",legend_y=-0.12)
+    st.plotly_chart(fig,use_container_width=True,config={"displayModeBar":False})
+
+    st.markdown("#### Risk graph register")
+    graph_table=event_table(risk_graph)
+    if not graph_table.empty:
+        graph_table["Oriel FV"]=graph_table["Oriel FV"].map(lambda x:"—" if pd.isna(x) else f"{float(x):.1%}")
+        graph_table["MEDUSDi beta"]=graph_table["MEDUSDi beta"].map(lambda x:f"{float(x):.2f}")
+        graph_table["Basis connectivity"]=graph_table["Basis connectivity"].map(lambda x:f"{float(x):.0f}/100")
+        st.dataframe(graph_table,use_container_width=True,hide_index=True)
+
+    event_nodes=[n for n in risk_graph["nodes"] if n["type"]=="event"]
+    event_labels={n["label"]:n["id"] for n in event_nodes}
+    if event_labels:
+        st.markdown("#### Relationship drill-down")
+        selected_label=st.selectbox("Healthcare exposure",list(event_labels.keys()),key="risk_graph_event")
+        selected_id=event_labels[selected_label]
+        selected_node=next(n for n in event_nodes if n["id"]==selected_id)
+        d1,d2,d3,d4=st.columns(4)
+        d1.metric("Basis grade",str(selected_node.get("basis_grade","—")))
+        d2.metric("Connectivity score",f"{float(selected_node.get('basis_connectivity_score',0)):.0f}/100")
+        d3.metric("MEDUSDi beta",f"{float(selected_node.get('healthcare_beta',0)):.2f}")
+        d4.metric("Eligible pools",len(selected_node.get("eligible_pools",[])))
+        neighbors=neighborhood(risk_graph,selected_id)
+        st.dataframe(neighbors,use_container_width=True,hide_index=True)
+
+    st.markdown("<div class='dark'><b>Why this is proprietary:</b> the graph is not merely a visualization of contracts. It is the machine-readable relationship layer connecting a client/economic healthcare exposure to an objective public trigger, basis quality, correlated risks, hedge-factor sensitivity and eligible institutional capacity. As CareFi adds actual placements and realized outcomes, these edges and scores can be recalibrated from transaction history rather than generic market assumptions.</div>",unsafe_allow_html=True)
 
 st.markdown("---")
 st.caption("CARE-HRV-01 is a research prototype for institutional discussion. It is not an offering, investment product, executable quote or legal structure.")
