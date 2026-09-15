@@ -35,7 +35,7 @@
   "errors": [
     "BLS SIHCARE3: SIHCARE3 not found via BLS API or PPI Special Indexes flat file"
   ],
-  "generated_at": "2026-09-15T07:32:04.022710+00:00",
+  "generated_at": "2026-09-15T07:35:25.121447+00:00",
   "medusdi": {
     "note": "MEDUSDi spot requires an explicit token/pool address; Medical CPI is the live fair-value reference input only.",
     "reference_series": "CUUR0000SAM",
@@ -43,7 +43,7 @@
     "spot_status": "not_connected"
   },
   "oriel_event_marks": {
-    "generated_at": "2026-09-15T07:32:05.930612+00:00",
+    "generated_at": "2026-09-15T07:35:27.197338+00:00",
     "live_mark_count": 3,
     "mark_count": 6,
     "methodology_version": "OER-HC-1.0.0",
