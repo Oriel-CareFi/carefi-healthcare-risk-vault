@@ -1,10 +1,10 @@
 {
   "bls_latest": {
     "Healthcare Services PPI": {
-      "date": "2026-08-01",
+      "date": "2026-09-01",
       "series_id": "WPUSIHCARE3",
-      "value": 138.236,
-      "yoy_pct": 2.9529831460255673
+      "value": 137.944,
+      "yoy_pct": 2.6896248818217616
     },
     "Medical CPI": {
       "date": "2025-12-01",
@@ -20,26 +20,14 @@
     }
   },
   "cdc": {
-    "dataset_id": "vutn-jzwm",
-    "latest_period": "2026-10-03",
-    "ledger_records": 8150,
+    "latest_period": null,
     "new_first_prints": 0,
-    "rows_fetched": 8164,
-    "sample_keys": [
-      "geography",
-      "pathogen",
-      "percent_visits",
-      "week_end"
-    ],
-    "sample_row": {
-      "geography": "Alabama",
-      "pathogen": "Influenza",
-      "percent_visits": "0.5",
-      "week_end": "2023-10-07T00:00:00.000"
-    }
+    "rows_fetched": 0
   },
-  "errors": [],
-  "generated_at": "2026-10-14T17:10:06.359665+00:00",
+  "errors": [
+    "CDC: HTTPSConnectionPool(host='data.cdc.gov', port=443): Read timed out. (read timeout=10)"
+  ],
+  "generated_at": "2026-10-15T17:00:19.918399+00:00",
   "medusdi": {
     "note": "MEDUSDi spot requires an explicit token/pool address; Medical CPI is the live fair-value reference input only.",
     "reference_series": "CUUR0000SAM",
@@ -47,13 +35,13 @@
     "spot_status": "not_connected"
   },
   "oriel_event_marks": {
-    "generated_at": "2026-10-14T17:10:12.316207+00:00",
+    "generated_at": "2026-10-15T17:00:32.274655+00:00",
     "live_mark_count": 4,
     "mark_count": 6,
     "methodology_version": "OER-HC-1.0.0",
     "status": "live"
   },
-  "status": "healthy",
+  "status": "degraded",
   "venue": {
     "note": "Venue collateral/account feed requires authorized API credentials.",
     "status": "not_connected"
