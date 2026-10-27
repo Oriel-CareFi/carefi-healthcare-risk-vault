@@ -1,6 +1,6 @@
 {
   "dataset_id": "vutn-jzwm",
-  "last_ingested_at": "2026-10-26T18:41:01.392580+00:00",
+  "last_ingested_at": "2026-10-27T18:00:24.349358+00:00",
   "methodology": "first seen by scheduled ingestion; revisions ignored",
   "record_count": 8252,
   "records": {
