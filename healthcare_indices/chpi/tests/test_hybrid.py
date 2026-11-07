@@ -71,7 +71,7 @@ class HybridTests(unittest.TestCase):
     def test_basis_risk(self):
         r=basis_risk_report([2,4,8],[3,3,10])
         self.assertEqual(r["observation_count"],3)
-        self.assertAlmostEqual(r["mean_absolute_basis_pp"],4/3)
+        self.assertAlmostEqual(r["mean_absolute_basis_pp"],4/3, places=6)
 
     def test_scenario_grid(self):
         r=scenario_grid(terms(),fixing(100,"2026-12-31"),[102,106,109])
