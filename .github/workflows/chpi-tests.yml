@@ -1,0 +1,30 @@
+name: CHPI research tests
+on:
+  pull_request:
+    paths:
+      - 'healthcare_indices/**'
+      - '.github/workflows/chpi-tests.yml'
+  push:
+    paths:
+      - 'healthcare_indices/**'
+      - '.github/workflows/chpi-tests.yml'
+jobs:
+  test-chpi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify CHPI research engine
+        run: python -m unittest discover -s healthcare_indices/chpi/tests -v
+      - name: Research-only end-to-end replay smoke tests
+        run: |
+          python -m healthcare_indices.chpi.replay healthcare_indices/chpi/examples/synthetic_exposure.json healthcare_indices/chpi/examples/synthetic_terms.json healthcare_indices/chpi/examples/synthetic_growth_history.csv --mode parametric --output /tmp/chpi-parametric.json
+          python -m healthcare_indices.chpi.replay healthcare_indices/chpi/examples/synthetic_exposure.json healthcare_indices/chpi/examples/synthetic_terms.json healthcare_indices/chpi/examples/synthetic_growth_history.csv --mode indemnity_hybrid --output /tmp/chpi-hybrid.json
+          python -c "import json; a=json.load(open('/tmp/chpi-parametric.json')); b=json.load(open('/tmp/chpi-hybrid.json')); assert a['observation_count']==4 and b['observation_count']==4; assert all(not x['claim_payable'] for x in a['periods']+b['periods'])"
+      - name: CHPI underwriting/pricing end-to-end smoke test
+        run: |
+          python -m healthcare_indices.chpi.pricing healthcare_indices/chpi/examples/synthetic_exposure.json healthcare_indices/chpi/examples/synthetic_terms.json healthcare_indices/chpi/examples/synthetic_growth_history.csv healthcare_indices/chpi/examples/synthetic_pricing.json --mode parametric --output /tmp/chpi-pricing-parametric.json
+          python -m healthcare_indices.chpi.pricing healthcare_indices/chpi/examples/synthetic_exposure.json healthcare_indices/chpi/examples/synthetic_terms.json healthcare_indices/chpi/examples/synthetic_growth_history.csv healthcare_indices/chpi/examples/synthetic_pricing.json --mode indemnity_hybrid --output /tmp/chpi-pricing-hybrid.json
+          python -c "import json; a=json.load(open('/tmp/chpi-pricing-parametric.json')); b=json.load(open('/tmp/chpi-pricing-hybrid.json')); assert a['status']=='RESEARCH_ONLY' and b['status']=='RESEARCH_ONLY' and float(a['premium_usd']) > float(b['premium_usd']) and not a['is_bindable_quote'] and not b['is_bindable_quote']"

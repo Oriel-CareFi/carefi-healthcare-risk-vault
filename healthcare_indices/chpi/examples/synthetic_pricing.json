@@ -1,0 +1,21 @@
+{
+  "provenance": "SYNTHETIC",
+  "scenario_probabilities": [
+    0.25,
+    0.25,
+    0.25,
+    0.25
+  ],
+  "assumptions": {
+    "expense_ratio": 0.12,
+    "commission_ratio": 0.04,
+    "target_margin_ratio": 0.08,
+    "fixed_expense_usd": "10000",
+    "capital_quantile": 0.95,
+    "annual_capital_cost_rate": 0.1,
+    "reinsurance_cession_ratio": 0,
+    "reinsurance_premium_usd": "0",
+    "minimum_premium_usd": "0",
+    "assumptions_id": "SYNTHETIC-DEMO-001"
+  }
+}
