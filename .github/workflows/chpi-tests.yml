@@ -18,3 +18,8 @@ jobs:
           python-version: '3.11'
       - name: Verify CHPI research engine
         run: python -m unittest discover -s healthcare_indices/chpi/tests -v
+      - name: Research-only end-to-end replay smoke tests
+        run: |
+          python -m healthcare_indices.chpi.replay healthcare_indices/chpi/examples/synthetic_exposure.json healthcare_indices/chpi/examples/synthetic_terms.json healthcare_indices/chpi/examples/synthetic_growth_history.csv --mode parametric --output /tmp/chpi-parametric.json
+          python -m healthcare_indices.chpi.replay healthcare_indices/chpi/examples/synthetic_exposure.json healthcare_indices/chpi/examples/synthetic_terms.json healthcare_indices/chpi/examples/synthetic_growth_history.csv --mode indemnity_hybrid --output /tmp/chpi-hybrid.json
+          python -c "import json; a=json.load(open('/tmp/chpi-parametric.json')); b=json.load(open('/tmp/chpi-hybrid.json')); assert a['observation_count']==4 and b['observation_count']==4; assert all(not x['claim_payable'] for x in a['periods']+b['periods'])"
