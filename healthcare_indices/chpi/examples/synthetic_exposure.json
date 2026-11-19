@@ -1,0 +1,28 @@
+{
+  "insured_id": "SYNTHETIC-PAYER",
+  "policy_id": "PILOT-01",
+  "direction": "payer_cost_increase",
+  "period_start": "2027-01-01",
+  "period_end": "2027-12-31",
+  "frozen_at": "2026-12-15",
+  "schedule_version": "EXPOSURE-RESEARCH-0.1",
+  "evidence_reference": "SYNTHETIC-NO-ACTUAL-INSURED",
+  "lines": [
+    {
+      "line_id": "A",
+      "region": "BOSTON",
+      "service_category": "outpatient",
+      "network": "N1",
+      "exposure_usd": "12000000",
+      "reference_index": "CHPI-US"
+    },
+    {
+      "line_id": "B",
+      "region": "BOSTON",
+      "service_category": "professional",
+      "network": "N1",
+      "exposure_usd": "8000000",
+      "reference_index": "CHPI-US"
+    }
+  ]
+}

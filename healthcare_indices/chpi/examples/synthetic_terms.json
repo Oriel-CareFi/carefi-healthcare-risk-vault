@@ -1,0 +1,11 @@
+{
+  "coverage_id": "PILOT-01",
+  "reference_index": "CHPI-US",
+  "attachment_pct": 5,
+  "exhaustion_pct": 10,
+  "scheduled_exposure_usd": "20000000",
+  "policy_limit_usd": "1000000",
+  "retained_share_pct": 0,
+  "exposure_region": "BOSTON",
+  "requires_documented_loss": true
+}

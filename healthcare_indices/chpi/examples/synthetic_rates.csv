@@ -1,0 +1,5 @@
+vintage,payer,network,provider_id,geography,billing_code_type,billing_code,billing_class,negotiated_type,negotiated_rate,category,rate_unit
+2026Q1,SYNTHETIC,N1,P1,00000,CPT,99213,professional,negotiated,100,professional,per_service
+2026Q2,SYNTHETIC,N1,P1,00000,CPT,99213,professional,negotiated,105,professional,per_service
+2026Q1,SYNTHETIC,N1,P2,00000,CPT,99214,professional,negotiated,200,professional,per_service
+2026Q2,SYNTHETIC,N1,P2,00000,CPT,99214,professional,negotiated,210,professional,per_service
